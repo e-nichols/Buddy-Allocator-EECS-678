@@ -52,6 +52,7 @@ typedef struct {
 	struct list_head list;
 	int isUsed;
 	int order;
+	int index;
 	/* TODO: DECLARE NECESSARY MEMBER VARIABLES */
 } page_t;
 
@@ -86,14 +87,21 @@ page_t g_pages[(1<<MAX_ORDER)/PAGE_SIZE];
 	 return -1;
  }
 
- /**************************************************************************
- * Find a free page in the free_area list and allocate it
- **************************************************************************/
- int findFreePage(int order)
- {
-	 return 1;
- }
+//find the correct index of the free block after a split.
+int find_index(int order){
+	int index = 256/(MAX_ORDER - (order + 1));
+	return index;
+}
 
+//Pass it the order we're at and the order we need
+ void split(int currentOrder, int desiredOrder, int index){
+	 int order = currentOrder-1;
+	 while(order >= desiredOrder){
+		 int ind = find_index(order);
+		 list_add(&g_pages[ind+index].list, &free_area[order]);
+		 order--;
+	 }
+ }
 
 /**************************************************************************
  * Local Functions
@@ -111,6 +119,7 @@ void buddy_init()
 		//Add to the g_pages array given the index i
 		page_t new;
 		new.isUsed = 0;
+		new.index = i;
 
 		g_pages[i] = new;
 
@@ -153,14 +162,19 @@ void *buddy_alloc(int size)
 	* the memory request
 	*/
 	int order = getProperLevel(size);
+	int freeOrder = order;
 
-	while(findFreePage(order)==-1){
-		order --;
+	while( list_empty( &free_area[freeOrder] ) == 1 && freeOrder < 21){
+		printf("Level %d has no free blocks, checking next level\n",freeOrder);
+		freeOrder++;
 	}
+	printf("First free order is: %d\n",freeOrder);
+	page_t* free_page = list_entry(&free_area[freeOrder], page_t, list);
+	int index = free_page->index;
 
-	//while find free page == NULL, ORDER --, FINDFREEPAGE(ORDER)
-
-
+	//split block at level n, remove from the free list
+	split(freeOrder, order, index);
+	free_page->isUsed = 1;
 
 	/* TODO: IMPLEMENT THIS FUNCTION */
 	return NULL;
@@ -208,6 +222,8 @@ void buddy_dump()
 }
 
 int main(int argc, char** argv){
+	buddy_init();
+	buddy_alloc(44);
 	printf("GET PROPER LEVEL FOR SIZE:256,ORDER RETURNED: %d\n",getProperLevel(1024));
 	printf("GET PROPER LEVEL FOR SIZE:44,ORDER RETURNED: %d\n",getProperLevel(44));
 	printf("GET PROPER LEVEL FOR SIZE:256,ORDER RETURNED: %d\n",getProperLevel(256));
