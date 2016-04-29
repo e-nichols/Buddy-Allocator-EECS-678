@@ -50,6 +50,7 @@
  **************************************************************************/
 typedef struct {
 	struct list_head list;
+	int isAllocated;
 	/* TODO: DECLARE NECESSARY MEMBER VARIABLES */
 } page_t;
 
@@ -69,6 +70,24 @@ page_t g_pages[(1<<MAX_ORDER)/PAGE_SIZE];
  * Public Function Prototypes
  **************************************************************************/
 
+/*this will take in a memory req and return the level we should initially start
+* at to try and fulfil the request
+*/
+
+ int getProperLevel(int req){
+
+	 int i;
+	 int j=0;
+	 for(i=0;i<MAX_ORDER;i++){
+		 if(1<<i >= req){
+			 return 10-i;
+		 }
+	 }
+	 printf("ERR: MEMREQ IS TOO BIG.\n");
+	 return -1;
+
+ }
+
 /**************************************************************************
  * Local Functions
  **************************************************************************/
@@ -81,6 +100,11 @@ void buddy_init()
 	int i;
 	int n_pages = (1<<MAX_ORDER) / PAGE_SIZE;
 	for (i = 0; i < n_pages; i++) {
+		/*
+		* Make a new page struct
+		* Set isAllocated bit to FALSE
+		* Add to the g_pages array given the index i
+		*/
 		/* TODO: INITIALIZE PAGE STRUCTURES */
 	}
 
@@ -109,8 +133,27 @@ void buddy_init()
  */
 void *buddy_alloc(int size)
 {
+	/*
+	* Round size up to nearest power of 2 to find the first
+	* level to check
+	* Go to level n, check and see if free list has items in it,
+	* if so, alloc memory block and return the address (index of g_page)
+	*
+	* If NOT, go to level n-1, go to free list, get a block, split it,
+	* add the right block to the free list of level n and alloc the left block to
+	* the memory request
+	*/
+
 	/* TODO: IMPLEMENT THIS FUNCTION */
 	return NULL;
+
+	/* PSEUDOCODE
+		if the list of free blocks at level n is empty
+	    allocate a block at level n-1 (using this algorithm)
+	    split the block into two blocks at level n
+	    insert the two blocks into the list of free blocks for level n
+		set the first block to alloated the list at level n and return it
+	*/
 }
 
 /**
@@ -144,4 +187,10 @@ void buddy_dump()
 		printf("%d:%dK ", cnt, (1<<o)/1024);
 	}
 	printf("\n");
+}
+
+int main(int argc, char** argv){
+	printf("GET PROPER LEVEL FOR SIZE:256,ORDER RETURNED: %d",getProperLevel(256));
+	printf("GET PROPER LEVEL FOR SIZE:44,ORDER RETURNED: %d",getProperLevel(44));
+
 }
