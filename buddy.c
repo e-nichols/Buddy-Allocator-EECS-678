@@ -50,7 +50,8 @@
  **************************************************************************/
 typedef struct {
 	struct list_head list;
-	int isAllocated;
+	int isUsed;
+	int order;
 	/* TODO: DECLARE NECESSARY MEMBER VARIABLES */
 } page_t;
 
@@ -70,23 +71,29 @@ page_t g_pages[(1<<MAX_ORDER)/PAGE_SIZE];
  * Public Function Prototypes
  **************************************************************************/
 
-/*this will take in a memory req and return the level we should initially start
-* at to try and fulfil the request
-*/
-
- int getProperLevel(int req){
-
+/**************************************************************************
+* Get Proper Level for a Memory Request
+**************************************************************************/
+ int getProperLevel(int req)
+ {
 	 int i;
-	 int j=0;
-	 for(i=0;i<MAX_ORDER;i++){
+	 for(i=0; i<11; i++){
 		 if(1<<i >= req){
-			 return 10-i;
+			 return i+10;
 		 }
 	 }
 	 printf("ERR: MEMREQ IS TOO BIG.\n");
 	 return -1;
-
  }
+
+ /**************************************************************************
+ * Find a free page in the free_area list and allocate it
+ **************************************************************************/
+ int findFreePage(int order)
+ {
+	 return 1;
+ }
+
 
 /**************************************************************************
  * Local Functions
@@ -100,11 +107,13 @@ void buddy_init()
 	int i;
 	int n_pages = (1<<MAX_ORDER) / PAGE_SIZE;
 	for (i = 0; i < n_pages; i++) {
-		/*
-		* Make a new page struct
-		* Set isAllocated bit to FALSE
-		* Add to the g_pages array given the index i
-		*/
+
+		//Add to the g_pages array given the index i
+		page_t new;
+		new.isUsed = 0;
+
+		g_pages[i] = new;
+
 		/* TODO: INITIALIZE PAGE STRUCTURES */
 	}
 
@@ -143,6 +152,15 @@ void *buddy_alloc(int size)
 	* add the right block to the free list of level n and alloc the left block to
 	* the memory request
 	*/
+	int order = getProperLevel(size);
+
+	while(findFreePage(order)==-1){
+		order --;
+	}
+
+	//while find free page == NULL, ORDER --, FINDFREEPAGE(ORDER)
+
+
 
 	/* TODO: IMPLEMENT THIS FUNCTION */
 	return NULL;
@@ -190,7 +208,8 @@ void buddy_dump()
 }
 
 int main(int argc, char** argv){
-	printf("GET PROPER LEVEL FOR SIZE:256,ORDER RETURNED: %d",getProperLevel(256));
-	printf("GET PROPER LEVEL FOR SIZE:44,ORDER RETURNED: %d",getProperLevel(44));
+	printf("GET PROPER LEVEL FOR SIZE:256,ORDER RETURNED: %d\n",getProperLevel(1024));
+	printf("GET PROPER LEVEL FOR SIZE:44,ORDER RETURNED: %d\n",getProperLevel(44));
+	printf("GET PROPER LEVEL FOR SIZE:256,ORDER RETURNED: %d\n",getProperLevel(256));
 
 }
