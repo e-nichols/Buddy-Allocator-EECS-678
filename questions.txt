@@ -1,0 +1,17 @@
+Why free_area is an array of list_heads instead of a page_t
+why does page_t contain list_heads
+
+how does the program initialize? when do we need to declare new free_area[] lists?
+
+
+proposed new structures
+
+list_head {
+    list_head prev, next;
+    page_t page
+}
+
+page_t {
+    int isAllocated
+    int isSplit
+}

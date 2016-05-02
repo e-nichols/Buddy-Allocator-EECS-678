@@ -1,3 +1,5 @@
+#include "math.h"
+
 #ifndef BUDDY_H
 #define BUDDY_H
 
