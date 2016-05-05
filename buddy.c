@@ -228,17 +228,17 @@ void buddy_free(void *addr)
 		struct list_head *tracker;
 		list_for_each(tracker, &free_area[currentOrder]){
 			if(buddy==list_entry(tracker,page_t,list)){
-				buddy->isUsed = 0;
+				found = 1;
 			}
 		}
-		if(buddy->isUsed == 0){
+		if(!found){
+				break;
+		} else {
 			list_del_init(&buddy->list);
-			if(buddy<page_to_free){
+			if(buddy->index<page_to_free->index){
 				page_to_free = buddy;
 			}
 			currentOrder++;
-		} else {
-			found = 1;
 		}
 	}
 	page_to_free->order = currentOrder;
