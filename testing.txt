@@ -1,0 +1,1 @@
+run make ,./buddy, A = alloc (1024k) //to test memory

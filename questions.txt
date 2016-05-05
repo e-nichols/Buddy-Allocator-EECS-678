@@ -15,3 +15,10 @@ page_t {
     int isAllocated
     int isSplit
 }
+
+
+finding index
+once you get the page, should be able to find the index from doing size_t page_t -> p - (page_t*) g-pages; where p is obtained by doing list_entry()
+
+
+g_memory represnets physical memory on the device, where each block is 4k....g pages maps to each 4k block in g_memory

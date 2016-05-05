@@ -97,9 +97,13 @@ int find_index(int order){
  void split(int currentOrder, int desiredOrder, int index){
 	 int order = currentOrder-1;
 	 while(order >= desiredOrder){
-		 int ind = find_index(order);
-		 list_add(&g_pages[ind+index].list, &free_area[order]);
-		 order--;
+		 page_t* right_side = &g_pages[ADDR_TO_PAGE(BUDDY_ADDR(PAGE_TO_ADDR(index), order))];
+		 //int ind = find_index(order);
+		 list_add(&(right_side->list), &free_area[order]);
+		 split(order, desiredOrder, index);
+	 }
+	 if(currentOrder == desiredOrder) {
+		 return;
 	 }
  }
 
@@ -120,7 +124,7 @@ void buddy_init()
 		page_t new;
 		new.isUsed = 0;
 		new.index = i;
-
+		new.order = -1;
 		g_pages[i] = new;
 
 		/* TODO: INITIALIZE PAGE STRUCTURES */
@@ -171,12 +175,13 @@ void *buddy_alloc(int size)
 	printf("First free order is: %d\n",freeOrder);
 	page_t* free_page = list_entry(&free_area[freeOrder], page_t, list);
 	int index = free_page->index;
+	list_del_init(&(free_page->list));
+
 
 	//split block at level n, remove from the free list
 	split(freeOrder, order, index);
 	free_page->isUsed = 1;
 
-	/* TODO: IMPLEMENT THIS FUNCTION */
 	return NULL;
 
 	/* PSEUDOCODE
@@ -200,6 +205,15 @@ void *buddy_alloc(int size)
 void buddy_free(void *addr)
 {
 	/* TODO: IMPLEMENT THIS FUNCTION */
+	page_t* page_to_free = &g_pages[ADDR_TO_PAGE(addr)];
+	int currentOrder = page_to_free->order;
+
+	while(currentOrder <= MAX_ORDER) {
+		if(currentOrder == MAX_ORDER) {
+			list_del_init(&(page_to_free->list));
+			list_add()
+		}
+	}
 }
 
 /**
