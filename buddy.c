@@ -80,9 +80,9 @@ page_t g_pages[(1<<MAX_ORDER)/PAGE_SIZE];
  int getProperLevel(int req)
  {
 	 int i;
-	 for(i=0; i<11; i++){
+	 for(i=MIN_ORDER; i<MAX_ORDER; i++){
 		 if(1<<i >= req){
-			 return i+10;
+			 return i;
 		 }
 	 }
 	 printf("ERR: MEMREQ IS TOO BIG.\n");
@@ -97,16 +97,15 @@ int find_index(int order){
 
 //Pass it the order we're at and the order we need
  void split(int currentOrder, int desiredOrder, int index){
-	 int order = currentOrder-1;
-	 while(order >= desiredOrder){
-		 page_t* right_side = &g_pages[ADDR_TO_PAGE(BUDDY_ADDR(PAGE_TO_ADDR(index), order))];
-		 //int ind = find_index(order);
-		 list_add(&(right_side->list), &free_area[order]);
-		 split(order, desiredOrder, index);
-	 }
+	 printf("splitting on order: %d for index %d\n", currentOrder, index);
 	 if(currentOrder == desiredOrder) {
 		 return;
 	 }
+	 int order = currentOrder-1;
+	 page_t* right_side = &g_pages[ADDR_TO_PAGE(BUDDY_ADDR(PAGE_TO_ADDR(index), order))];
+		 //int ind = find_index(order);
+	 list_add(&(right_side->list), &free_area[order]);
+	 split(order, desiredOrder, index);
  }
 
 /**************************************************************************
@@ -127,7 +126,6 @@ void buddy_init()
 		new.isUsed = 0;
 		new.index = i;
 		new.order = INIT_ORDER;
-		new.memAdr = PAGE_TO_ADDR(i);
 		g_pages[i] = new;
 
 		/* TODO: INITIALIZE PAGE STRUCTURES */
@@ -174,21 +172,24 @@ void *buddy_alloc(int size)
 	int order = getProperLevel(size);
 	int freeOrder = order;
 
-	while( list_empty( &free_area[freeOrder] ) == 1 && freeOrder < 21){
+	while(list_empty(&free_area[freeOrder]) && (freeOrder < 21)){
 		printf("Level %d has no free blocks, checking next level\n",freeOrder);
 		freeOrder++;
+		if(freeOrder==21){
+			return NULL;
+		}
 	}
 	printf("First free order is: %d\n",freeOrder);
-	page_t* free_page = list_entry(&free_area[freeOrder], page_t, list);
+	page_t* free_page = list_entry(free_area[freeOrder].next, page_t, list);
 	int index = free_page->index;
 	list_del_init(&(free_page->list));
 
-
 	//split block at level n, remove from the free list
-	split(freeOrder, order, index);
 	free_page->isUsed = 1;
+	free_page->order = order;
+	split(freeOrder, order, index);
 
-	return NULL;
+	return ((void*)PAGE_TO_ADDR(index));
 
 	/* PSEUDOCODE
 		if the list of free blocks at level n is empty
@@ -215,64 +216,33 @@ void buddy_free(void *addr)
 	* based on the addr passed in
 	*/
 	page_t* page_to_free = &g_pages[ADDR_TO_PAGE(addr)];
-	int curOrder = page_to_free->order;
-	int counter = curOrder;
-
-	/*
-	* Make sure the order passed is in range.
-	* MIN_ORDER, MAX_ORDER
-	*/
-	if(curOrder > MAX_ORDER || curOrder < MIN_ORDER){
-		fprintf(stderr, "ERR: ORDER OUT OF RANGE. ORDER: %d\n",curOrder);
+	int currentOrder = page_to_free->order;
+	char found = 0;
+	while((currentOrder <= MAX_ORDER) && (found == 0)) {
+		if(currentOrder == MAX_ORDER) {
+			printf("order is maxed out.");
+			page_to_free->order = currentOrder;
+			list_add(&page_to_free->list, &free_area[currentOrder]);
+		}
+		page_t *buddy = &g_pages[ADDR_TO_PAGE(BUDDY_ADDR(PAGE_TO_ADDR(page_to_free->index), currentOrder))];
+		struct list_head *tracker;
+		list_for_each(tracker, &free_area[currentOrder]){
+			if(buddy==list_entry(tracker,page_t,list)){
+				buddy->isUsed = 0;
+			}
+		}
+		if(buddy->isUsed == 0){
+			list_del_init(&buddy->list);
+			if(buddy<page_to_free){
+				page_to_free = buddy;
+			}
+			currentOrder++;
+		} else {
+			found = 1;
+		}
 	}
-
-	while(counter <= MAX_ORDER) {
-
-		/*
-		* isFree used to see if we need to remove
-		* from the free list or not. curPos is
-		* used to track our current position within mem.
-		*/
-		int isFree = 0;
-		struct list_head *curPos;
-
-		/*
-		* Find the Buddy and then check if it is free.
-		*/
-		int ind = ADDR_TO_PAGE(BUDDY_ADDR(page_to_free -> memAdr,counter));
-		page_t *buddy = &g_pages[ind];
-
-		list_for_each(curPos,&free_area[counter]){
-
-			/*
-			* Check if the buddy is within the free list.
-			* If it is, signal the isFree flag so we make
-			* sure to remove it later
-			*/
-			if( list_entry(curPos,page_t,list) == buddy ){
-				isFree = 1;
-			}
-
-			/*
-			* Check to see if we can free the buddy. If we can, remove
-			* it from the free list. If not, break the loop, we're done.
-			*/
-			if(isFree){
-				list_del_init(&buddy->list);
-				if(page_to_free > buddy){
-					page_to_free = buddy;
-				}
-			}
-			else{
-				break;
-			}
-		}//END LIST_FOR_EACH
-
-		page_to_free -> order = counter;
-		list_add(&page_to_free->list,&free_area[counter]);
-
-
-	}//END WHILE
+	page_to_free->order = currentOrder;
+	list_add(&page_to_free->list, &free_area[currentOrder]);
 }//END BUDDY FREE
 
 /**
@@ -292,13 +262,4 @@ void buddy_dump()
 		printf("%d:%dK ", cnt, (1<<o)/1024);
 	}
 	printf("\n");
-}
-
-int main(int argc, char** argv){
-	buddy_init();
-	buddy_alloc(44);
-	printf("GET PROPER LEVEL FOR SIZE:256,ORDER RETURNED: %d\n",getProperLevel(1024));
-	printf("GET PROPER LEVEL FOR SIZE:44,ORDER RETURNED: %d\n",getProperLevel(44));
-	printf("GET PROPER LEVEL FOR SIZE:256,ORDER RETURNED: %d\n",getProperLevel(256));
-
 }
