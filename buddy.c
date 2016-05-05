@@ -23,6 +23,7 @@
  **************************************************************************/
 #define MIN_ORDER 12
 #define MAX_ORDER 20
+#define INIT_ORDER -1
 
 #define PAGE_SIZE (1<<MIN_ORDER)
 /* page index to address */
@@ -53,6 +54,7 @@ typedef struct {
 	int isUsed;
 	int order;
 	int index;
+	char *memAdr;
 	/* TODO: DECLARE NECESSARY MEMBER VARIABLES */
 } page_t;
 
@@ -124,7 +126,8 @@ void buddy_init()
 		page_t new;
 		new.isUsed = 0;
 		new.index = i;
-		new.order = -1;
+		new.order = INIT_ORDER;
+		new.memAdr = PAGE_TO_ADDR(i);
 		g_pages[i] = new;
 
 		/* TODO: INITIALIZE PAGE STRUCTURES */
@@ -137,6 +140,9 @@ void buddy_init()
 
 	/* add the entire memory as a freeblock */
 	list_add(&g_pages[0].list, &free_area[MAX_ORDER]);
+
+	/* set the 1024 chunk to highest order */
+	g_pages[0].order = MAX_ORDER;
 }
 
 /**
@@ -204,17 +210,70 @@ void *buddy_alloc(int size)
  */
 void buddy_free(void *addr)
 {
-	/* TODO: IMPLEMENT THIS FUNCTION */
+	/*
+	* get the page_t struct of the page to free
+	* based on the addr passed in
+	*/
 	page_t* page_to_free = &g_pages[ADDR_TO_PAGE(addr)];
-	int currentOrder = page_to_free->order;
+	int curOrder = page_to_free->order;
+	int counter = curOrder;
 
-	while(currentOrder <= MAX_ORDER) {
-		if(currentOrder == MAX_ORDER) {
-			list_del_init(&(page_to_free->list));
-			list_add()
-		}
+	/*
+	* Make sure the order passed is in range.
+	* MIN_ORDER, MAX_ORDER
+	*/
+	if(curOrder > MAX_ORDER || curOrder < MIN_ORDER){
+		fprintf(stderr, "ERR: ORDER OUT OF RANGE. ORDER: %d\n",curOrder);
 	}
-}
+
+	while(counter <= MAX_ORDER) {
+
+		/*
+		* isFree used to see if we need to remove
+		* from the free list or not. curPos is
+		* used to track our current position within mem.
+		*/
+		int isFree = 0;
+		struct list_head *curPos;
+
+		/*
+		* Find the Buddy and then check if it is free.
+		*/
+		int ind = ADDR_TO_PAGE(BUDDY_ADDR(page_to_free -> memAdr,counter));
+		page_t *buddy = &g_pages[ind];
+
+		list_for_each(curPos,&free_area[counter]){
+
+			/*
+			* Check if the buddy is within the free list.
+			* If it is, signal the isFree flag so we make
+			* sure to remove it later
+			*/
+			if( list_entry(curPos,page_t,list) == buddy ){
+				isFree = 1;
+			}
+
+			/*
+			* Check to see if we can free the buddy. If we can, remove
+			* it from the free list. If not, break the loop, we're done.
+			*/
+			if(isFree){
+				list_del_init(&buddy->list);
+				if(page_to_free > buddy){
+					page_to_free = buddy;
+				}
+			}
+			else{
+				break;
+			}
+		}//END LIST_FOR_EACH
+
+		page_to_free -> order = counter;
+		list_add(&page_to_free->list,&free_area[counter]);
+
+
+	}//END WHILE
+}//END BUDDY FREE
 
 /**
  * Print the buddy system status---order oriented
